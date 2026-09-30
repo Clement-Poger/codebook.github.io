@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#f6f5fc">
+	<link rel="icon" href="images/quiz.svg" type="image/svg+xml">
+	<title>CodeBook</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="home-css.css">
+</head>
+<body>
+	<main class="auth-screen" id="auth-screen" aria-labelledby="auth-title">
+		<section class="auth-panel">
+			<span class="brand-mark auth-mark" aria-hidden="true"><img src="images/quiz.svg" alt=""></span>
+			<p class="kicker">CodeBook</p>
+			<h1 id="auth-title">Connecte-toi pour réviser</h1>
+			<p class="welcome-copy">Ta progression est sauvegardée sur ton compte.</p>
+			<form class="auth-form" id="login-form">
+				<label class="field-label" for="auth-email">Adresse e-mail
+					<input id="auth-email" type="email" autocomplete="username" required>
+				</label>
+				<label class="field-label" for="auth-password">Mot de passe
+					<input id="auth-password" type="password" autocomplete="current-password" required>
+				</label>
+				<button class="primary-button" type="submit">Se connecter</button>
+			</form>
+			<form class="auth-form" id="password-setup-form" hidden>
+				<p id="password-setup-copy">Choisis un mot de passe d’au moins 12 caractères.</p>
+				<label class="field-label" for="new-password">Nouveau mot de passe
+					<input id="new-password" type="password" autocomplete="new-password" minlength="12" required>
+				</label>
+				<label class="field-label" for="confirm-password">Confirmer le mot de passe
+					<input id="confirm-password" type="password" autocomplete="new-password" minlength="12" required>
+				</label>
+				<button class="primary-button" type="submit">Enregistrer le mot de passe</button>
+			</form>
+			<form class="auth-form" id="mfa-form" hidden>
+				<p id="mfa-prompt">Vérifie ton identité avec l’application d’authentification.</p>
+				<div class="mfa-enrollment" id="mfa-enrollment" hidden>
+					<img id="mfa-qr" alt="Code QR pour configurer l’application d’authentification">
+					<p>Ou saisis cette clé manuellement :</p>
+					<code id="mfa-secret"></code>
+				</div>
+				<label class="field-label" for="mfa-code">Code à 6 chiffres
+					<input id="mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
+				</label>
+				<button class="primary-button" type="submit">Vérifier le code</button>
+			</form>
+			<button class="auth-reset-button" id="request-password-reset" type="button">Mot de passe oublié ?</button>
+			<p class="auth-feedback" id="auth-feedback" role="status" aria-live="polite" hidden></p>
+			<p class="auth-config-message" id="auth-config-message" role="alert" hidden></p>
+		</section>
+	</main>
+	<div class="app-shell" id="app-shell" hidden>
+	<header class="topbar">
+		<a class="brand" href="#accueil" aria-label="CodeBook, accueil">
+			<span class="brand-mark" aria-hidden="true"><img src="images/quiz.svg" alt=""></span>
+			<span>CodeBook</span>
+		</a>
+		<div class="nav-actions">
+			<button class="icon-button help-trigger" id="open-help" type="button" aria-label="Aide"><img src="images/help.svg" alt="" aria-hidden="true"></button>
+			<span class="account-email" id="account-email"></span>
+			<button class="admin-trigger" id="open-admin" type="button" hidden>Administration</button>
+			<button class="signout-button" id="sign-out" type="button">Se déconnecter</button>
+		</div>
+	</header>
+
+	<main class="page" id="accueil">
+		<section class="welcome" aria-labelledby="welcome-title">
+			<div>
+				<p class="kicker">Ton espace de révision</p>
+				<h1 id="welcome-title">Salut <span id="welcome-name">Camille</span>, on révise quoi ?</h1>
+				<p class="welcome-copy">Choisis un thème, une série et lance-toi.</p>
+			</div>
+			<div class="streak" aria-label="Série de révisions">
+					<img class="streak-icon" src="images/rapide.svg" alt="" aria-hidden="true">
+				<div><strong id="streak-value">0 session</strong><span>cette semaine</span></div>
+			</div>
+		</section>
+
+		<section class="stats" aria-label="Ta progression">
+				<div class="stat"><span class="stat-icon coral" aria-hidden="true"><img src="images/quiz.svg" alt=""></span><div><span class="stat-label">Quiz terminés</span><strong class="stat-value" id="stat-quizzes">0</strong></div></div>
+				<div class="stat"><span class="stat-icon blue" aria-hidden="true"><img src="images/check_circle.svg" alt=""></span><div><span class="stat-label">Bonnes réponses</span><strong class="stat-value" id="stat-score">0%</strong></div></div>
+				<div class="stat"><span class="stat-icon green" aria-hidden="true"><img src="images/menu_book.svg" alt=""></span><div><span class="stat-label">Questions vues</span><strong class="stat-value" id="stat-answers">0</strong></div></div>
+		</section>
+
+		<div class="workspace">
+			<div class="quiz-column">
+				<section class="topics-section" aria-labelledby="topics-title">
+					<div class="section-heading">
+						<div><h2 id="topics-title">Choisis un thème</h2><p>Les sujets disponibles pour ta promo B1.</p></div>
+						<div class="topic-carousel-controls" aria-label="Navigation des thèmes">
+							<button class="topic-scroll" id="topics-previous" type="button" aria-label="Thèmes précédents" title="Thèmes précédents" disabled><img class="topic-scroll-previous" src="images/arrow_forward.svg" alt="" aria-hidden="true"></button>
+							<button class="topic-scroll" id="topics-next" type="button" aria-label="Thèmes suivants" title="Thèmes suivants" disabled><img src="images/arrow_forward.svg" alt="" aria-hidden="true"></button>
+						</div>
+					</div>
+					<div class="topic-grid" id="topic-grid" role="group" aria-label="Thèmes de quiz" aria-roledescription="carrousel" tabindex="0"></div>
+				</section>
+
+				<section class="series-section" aria-labelledby="series-title">
+					<div class="section-heading">
+						<div><h2 id="series-title"><img class="heading-icon" src="images/menu_book.svg" alt="" aria-hidden="true"> <span id="series-title-text">Choisis une série</span></h2><p id="series-subtitle">Une série courte pour commencer.</p></div>
+					</div>
+					<div class="series-filters">
+						<label class="series-search"><span class="visually-hidden">Rechercher une série</span><input id="series-search" type="search" placeholder="Rechercher une série…" autocomplete="off"></label>
+						<label class="series-category-filter"><span class="visually-hidden">Filtrer par catégorie</span><select id="series-category-filter" aria-label="Filtrer par catégorie"><option value="all">Toutes les catégories</option></select></label>
+					</div>
+					<p class="series-result-count" id="series-result-count" aria-live="polite"></p>
+					<div class="series-list" id="series-list"></div>
+				</section>
+
+				<section class="quiz-setup" aria-labelledby="setup-title">
+					<h2 id="setup-title"><img class="heading-icon" src="images/tune.svg" alt="" aria-hidden="true"> Comment tu veux jouer ?</h2>
+					<div class="mode-switch" id="mode-switch" role="group" aria-label="Type de quiz">
+						<span class="mode-indicator" aria-hidden="true"></span>
+						<button class="mode-button" type="button" data-mode="qcm" aria-pressed="true"><img src="images/quiz.svg" alt="" aria-hidden="true"> QCM</button>
+						<button class="mode-button" type="button" data-mode="texte" aria-pressed="false"><img src="images/edit.svg" alt="" aria-hidden="true"> Réponse écrite</button>
+						<button class="mode-button" type="button" data-mode="aleatoire" aria-pressed="false"><img src="images/bolt.svg" alt="" aria-hidden="true"> Aléatoire</button>
+					</div>
+					<p class="mode-caption" id="mode-caption">Choisis parmi plusieurs propositions.</p>
+					<div class="setup-options">
+						<label class="check-option"><input id="show-feedback" type="checkbox" checked> Correction après chaque question</label>
+						<label class="check-option"><input id="shuffle-questions" type="checkbox"><img class="inline-icon" src="images/shuffle.svg" alt="" aria-hidden="true"> Mélanger les questions</label>
+						<label class="count-control" for="question-count"><img class="inline-icon" src="images/schedule.svg" alt="" aria-hidden="true"> Questions
+							<select id="question-count" aria-label="Nombre de questions"><option value="all">Toutes</option><option value="3">3</option><option value="5">5</option></select>
+						</label>
+					</div>
+					<button class="start-button" id="start-quiz" type="button"><img src="images/play_arrow.svg" alt="" aria-hidden="true"> Commencer le quiz</button>
+				</section>
+			</div>
+
+			<aside class="side-column" aria-label="Résumé">
+				<section class="side-panel" aria-labelledby="progress-title">
+					<h2 id="progress-title">Ta progression</h2>
+					<div class="progress-overview">
+						<div class="progress-ring" id="progress-ring" style="--progress: 0deg"><strong id="progress-percent">0%</strong></div>
+						<div class="progress-copy"><strong id="progress-label">À toi de jouer</strong><span id="progress-description">Termine un quiz pour voir tes progrès ici.</span></div>
+					</div>
+				</section>
+				<p class="sync-status" id="sync-status" aria-live="polite"></p>
+				<section class="side-panel" aria-labelledby="recent-title">
+					<h2 id="recent-title">Dernières sessions</h2>
+					<div class="recent-list" id="recent-list"><p class="empty-state">Tes quiz terminés apparaîtront ici.</p></div>
+				</section>
+			</aside>
+		</div>
+	</main>
+
+	<dialog class="dialog" id="quiz-dialog" aria-labelledby="quiz-dialog-title">
+		<div class="dialog-head">
+			<div><h2 id="quiz-dialog-title">Quiz</h2><p id="quiz-series-name"></p></div>
+			<button class="icon-button" type="button" data-close="quiz-dialog" aria-label="Fermer le quiz"><img src="images/close.svg" alt="" aria-hidden="true"></button>
+		</div>
+		<div class="dialog-content" id="quiz-content">
+			<div class="quiz-progress-label"><span id="question-count-label">Question 1 sur 4</span><span id="question-percent">25%</span></div>
+			<img class="quiz-progress-dots" id="question-progress-dots" src="images/progress_bar/barre-de-progression-0-sur-5.svg" alt="" aria-hidden="true">
+			<p class="question-kicker" id="question-topic"></p>
+			<h3 class="question-title" id="question-title"></h3>
+			<div id="answer-area"></div>
+			<div class="feedback" id="answer-feedback" hidden aria-live="polite"></div>
+			<div class="dialog-actions"><button class="primary-button" id="submit-text" type="button" hidden><img src="images/edit.svg" alt="" aria-hidden="true"> Valider</button><button class="primary-button" id="next-question" type="button" hidden></button></div>
+		</div>
+		<div class="dialog-content" id="result-content" hidden>
+			<div class="result-score"><strong class="result-number" id="result-number">0/0</strong><div class="result-copy"><strong id="result-title">Bien joué !</strong><span id="result-caption"></span></div></div>
+			<div class="review-list" id="review-list"></div>
+			<div class="dialog-actions"><button class="primary-button" id="finish-quiz" type="button">Retour à l’accueil</button></div>
+		</div>
+	</dialog>
+
+	<dialog class="dialog help-dialog" id="help-dialog" aria-labelledby="help-title">
+		<div class="dialog-head">
+			<div><h2 id="help-title"><img class="heading-icon" src="images/help.svg" alt="" aria-hidden="true"> Aide</h2></div>
+			<button class="icon-button" type="button" data-close="help-dialog" aria-label="Fermer l’aide"><img src="images/close.svg" alt="" aria-hidden="true"></button>
+		</div>
+		<div class="dialog-content">
+			<p>Choisis un thème et une série, puis sélectionne un mode de réponse avant de démarrer.</p>
+			<p>Avec la correction activée, chaque réponse est accompagnée d’une explication. Ta progression est sauvegardée sur ton compte.</p>
+		</div>
+	</dialog>
+
+	<dialog class="dialog" id="admin-dialog" aria-labelledby="admin-title">
+		<div class="dialog-head">
+			<div><h2 id="admin-title">Inviter un compte</h2><p>Un lien sécurisé sera envoyé à l’adresse indiquée.</p></div>
+			<button class="icon-button" type="button" data-close="admin-dialog" aria-label="Fermer l’administration"><img src="images/close.svg" alt="" aria-hidden="true"></button>
+		</div>
+		<div class="dialog-content">
+			<form class="profile-form" id="invite-user-form">
+				<label class="field-label" for="invite-email">Adresse e-mail
+					<input id="invite-email" type="email" autocomplete="email" required>
+				</label>
+				<div class="form-actions"><span class="save-note" id="invite-feedback" role="status" aria-live="polite"></span><button class="primary-button" type="submit">Envoyer l’invitation</button></div>
+			</form>
+		</div>
+	</dialog>
+	</div>
+
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js" defer></script>
+	<script src="supabase-config.js" defer></script>
+	<script src="../questions/ethique/quiz.js" defer></script>
+	<script src="../questions/gnu_linux/quiz.js" defer></script>
+	<script src="home-js.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "codebook_elios",
+  "version": "1.0.0",
+  "description": "A Website to Learn how to code",
+  "license": "MIT",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server . -p 4173 -c-1 -a 127.0.0.1",
+    "test": "node --check app/home-js.js && node --check app/supabase-config.js && node --check questions/ethique/quiz.js && node --check questions/gnu_linux/quiz.js"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
