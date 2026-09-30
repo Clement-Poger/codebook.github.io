@@ -17,7 +17,7 @@
 			<span class="brand-mark auth-mark" aria-hidden="true"><img src="images/quiz.svg" alt=""></span>
 			<p class="kicker">CodeBook</p>
 			<h1 id="auth-title">Connecte-toi pour réviser</h1>
-			<p class="welcome-copy">Ta progression est sauvegardée sur ton compte.</p>
+			<p class="welcome-copy" id="auth-copy">Ta progression est sauvegardée sur ton compte.</p>
 			<form class="auth-form" id="login-form">
 				<label class="field-label" for="auth-email">Adresse e-mail
 					<input id="auth-email" type="email" autocomplete="username" required>
@@ -26,6 +26,18 @@
 					<input id="auth-password" type="password" autocomplete="current-password" required>
 				</label>
 				<button class="primary-button" type="submit">Se connecter</button>
+			</form>
+			<form class="auth-form" id="signup-form" hidden>
+				<label class="field-label" for="signup-email">Adresse e-mail
+					<input id="signup-email" type="email" autocomplete="email" required>
+				</label>
+				<label class="field-label" for="signup-password">Mot de passe
+					<input id="signup-password" type="password" autocomplete="new-password" minlength="12" required>
+				</label>
+				<label class="field-label" for="signup-password-confirm">Confirmer le mot de passe
+					<input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="12" required>
+				</label>
+				<button class="primary-button" type="submit">Créer mon compte</button>
 			</form>
 			<form class="auth-form" id="password-setup-form" hidden>
 				<p id="password-setup-copy">Choisis un mot de passe d’au moins 12 caractères.</p>
@@ -49,6 +61,7 @@
 				</label>
 				<button class="primary-button" type="submit">Vérifier le code</button>
 			</form>
+			<button class="auth-mode-button" id="auth-mode-toggle" type="button">Créer un compte</button>
 			<button class="auth-reset-button" id="request-password-reset" type="button">Mot de passe oublié ?</button>
 			<p class="auth-feedback" id="auth-feedback" role="status" aria-live="polite" hidden></p>
 			<p class="auth-config-message" id="auth-config-message" role="alert" hidden></p>

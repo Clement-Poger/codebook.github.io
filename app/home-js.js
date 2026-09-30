@@ -348,20 +348,44 @@
 		function showLogin(message = "") {
 			document.querySelector("#auth-screen").hidden = false;
 			document.querySelector("#app-shell").hidden = true;
+			document.querySelector("#auth-title").textContent = "Connecte-toi pour réviser";
+			document.querySelector("#auth-copy").textContent = "Ta progression est sauvegardée sur ton compte.";
 			document.querySelector("#login-form").hidden = false;
+			document.querySelector("#signup-form").hidden = true;
 			document.querySelector("#password-setup-form").hidden = true;
 			document.querySelector("#mfa-form").hidden = true;
+			document.querySelector("#auth-mode-toggle").hidden = false;
+			document.querySelector("#auth-mode-toggle").textContent = "Créer un compte";
 			document.querySelector("#request-password-reset").hidden = false;
 			setAuthFeedback(message);
+		}
+
+		function showSignup() {
+			document.querySelector("#auth-screen").hidden = false;
+			document.querySelector("#app-shell").hidden = true;
+			document.querySelector("#auth-title").textContent = "Crée ton compte CodeBook";
+			document.querySelector("#auth-copy").textContent = "Retrouve ta progression sur tous tes appareils.";
+			document.querySelector("#login-form").hidden = true;
+			document.querySelector("#signup-form").hidden = false;
+			document.querySelector("#password-setup-form").hidden = true;
+			document.querySelector("#mfa-form").hidden = true;
+			document.querySelector("#auth-mode-toggle").hidden = false;
+			document.querySelector("#auth-mode-toggle").textContent = "J’ai déjà un compte";
+			document.querySelector("#request-password-reset").hidden = true;
+			setAuthFeedback("");
 		}
 
 		function showPasswordSetup(session) {
 			currentUser = session?.user || currentUser;
 			document.querySelector("#auth-screen").hidden = false;
 			document.querySelector("#app-shell").hidden = true;
+			document.querySelector("#auth-title").textContent = "Définis ton nouveau mot de passe";
+			document.querySelector("#auth-copy").textContent = "Choisis un mot de passe sécurisé pour ton compte.";
 			document.querySelector("#login-form").hidden = true;
+			document.querySelector("#signup-form").hidden = true;
 			document.querySelector("#password-setup-form").hidden = false;
 			document.querySelector("#mfa-form").hidden = true;
+			document.querySelector("#auth-mode-toggle").hidden = true;
 			document.querySelector("#request-password-reset").hidden = true;
 			setAuthFeedback("Choisis un mot de passe d’au moins 12 caractères.");
 		}
@@ -369,9 +393,13 @@
 		function showMfaForm(prompt, enrollment = null) {
 			document.querySelector("#auth-screen").hidden = false;
 			document.querySelector("#app-shell").hidden = true;
+			document.querySelector("#auth-title").textContent = "Vérification de sécurité";
+			document.querySelector("#auth-copy").textContent = "Confirme ton identité pour continuer.";
 			document.querySelector("#login-form").hidden = true;
+			document.querySelector("#signup-form").hidden = true;
 			document.querySelector("#password-setup-form").hidden = true;
 			document.querySelector("#mfa-form").hidden = false;
+			document.querySelector("#auth-mode-toggle").hidden = true;
 			document.querySelector("#request-password-reset").hidden = true;
 			document.querySelector("#mfa-prompt").textContent = prompt;
 			const enrollmentPanel = document.querySelector("#mfa-enrollment");
@@ -387,6 +415,14 @@
 			const url = new URL(window.location.href);
 			url.searchParams.delete("flow");
 			window.history.replaceState({}, "", url);
+		}
+
+		function getAuthRedirectUrl(flow = "") {
+			const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+			const redirect = new URL(isLocal ? window.location.href : window.SUPABASE_CONFIG.appUrl || window.location.href);
+			redirect.searchParams.delete("flow");
+			if (flow) redirect.searchParams.set("flow", flow);
+			return redirect.toString();
 		}
 
 		async function activateSession(session) {
@@ -482,7 +518,7 @@
 				showLogin();
 				configMessage.textContent = "La connexion n’est pas configurée. Ajoute l’URL et la clé publique de ton projet Supabase dans supabase-config.js.";
 				configMessage.hidden = false;
-				document.querySelectorAll("#login-form input, #login-form button, #request-password-reset").forEach((control) => { control.disabled = true; });
+				document.querySelectorAll("#login-form input, #login-form button, #signup-form input, #signup-form button, #auth-mode-toggle, #request-password-reset").forEach((control) => { control.disabled = true; });
 				return;
 			}
 
@@ -505,6 +541,41 @@
 				if (error) setAuthFeedback("Adresse e-mail ou mot de passe invalide.", true);
 			});
 
+			document.querySelector("#auth-mode-toggle").addEventListener("click", () => {
+				if (document.querySelector("#signup-form").hidden) showSignup();
+				else showLogin();
+			});
+
+			document.querySelector("#signup-form").addEventListener("submit", async (event) => {
+				event.preventDefault();
+				const email = document.querySelector("#signup-email").value.trim();
+				const password = document.querySelector("#signup-password").value;
+				if (password.length < 12 || password !== document.querySelector("#signup-password-confirm").value) {
+					setAuthFeedback(password.length < 12 ? "Le mot de passe doit contenir au moins 12 caractères." : "Les deux mots de passe ne correspondent pas.", true);
+					return;
+				}
+				if (window.location.protocol === "file:") {
+					setAuthFeedback("Ouvre l’application depuis son adresse web configurée pour créer un compte.", true);
+					return;
+				}
+				const button = event.currentTarget.querySelector("button[type=submit]");
+				button.disabled = true;
+				const { data, error } = await supabaseClient.auth.signUp({
+					email,
+					password,
+					options: { emailRedirectTo: getAuthRedirectUrl() }
+				});
+				button.disabled = false;
+				if (error) {
+					setAuthFeedback("Le compte n’a pas pu être créé. Vérifie les informations et réessaie.", true);
+					return;
+				}
+				if (!data.session) {
+					document.querySelector("#auth-email").value = email;
+					showLogin("Si cette adresse peut être inscrite, tu recevras un e-mail pour confirmer ton compte.");
+				}
+			});
+
 			document.querySelector("#request-password-reset").addEventListener("click", async () => {
 				const email = document.querySelector("#auth-email").value.trim();
 				if (!email) {
@@ -515,10 +586,7 @@
 					setAuthFeedback("Ouvre l’application depuis son adresse web configurée pour demander une récupération.", true);
 					return;
 				}
-				const redirect = new URL(window.SUPABASE_CONFIG.appUrl || window.location.href);
-				redirect.searchParams.delete("flow");
-				redirect.searchParams.set("flow", "recovery");
-				const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: redirect.toString() });
+				const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl("recovery") });
 				setAuthFeedback(error ? "La demande n’a pas pu être envoyée. Réessaie plus tard." : "Si un compte correspond à cette adresse, tu recevras un e-mail de récupération.", Boolean(error));
 			});
 

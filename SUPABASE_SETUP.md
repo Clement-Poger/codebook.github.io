@@ -4,7 +4,7 @@
 # Clé PUBLIQUE MAIL : e4a83d952b35d744e81bce679c1630ae
 # Clé PRIVE MAIL: c4b0217ef492b843e5dd37eb941cd146
 
-L'application utilise Supabase Auth pour les connexions, PostgreSQL avec RLS pour la progression et une Edge Function pour inviter des comptes. Il n'y a pas d'inscription publique ni de mot de passe stocké par l'application.
+L'application utilise Supabase Auth pour les connexions, les inscriptions publiques et la récupération des mots de passe, PostgreSQL avec RLS pour la progression et une Edge Function pour inviter des comptes. Aucun mot de passe n'est stocké par l'application.
 
 ## Développement local avec npm
 
@@ -20,8 +20,8 @@ Ouvre ensuite `http://localhost:4173/app/home.html` et ajoute `http://localhost:
 ## 1. Créer et verrouiller le projet
 
 1. Crée un projet Supabase et active le fournisseur d'authentification par e-mail et mot de passe.
-2. Dans les réglages Auth, désactive les nouvelles inscriptions publiques et impose une longueur minimale de mot de passe de 12 caractères. Les comptes sont créés via `auth.admin.inviteUserByEmail` par la fonction admin; le navigateur utilise `signInWithPassword` pour la connexion et `updateUser` pour choisir le mot de passe après invitation.
-3. Active la confirmation des adresses e-mail, impose le second facteur pour les comptes admin et configure un fournisseur SMTP de production.
+2. Dans les réglages Auth, active les nouvelles inscriptions publiques, active la confirmation des adresses e-mail et impose une longueur minimale de mot de passe de 12 caractères. Le navigateur utilise `signUp` pour créer un compte, `signInWithPassword` pour la connexion et `updateUser` pour choisir le mot de passe après invitation ou récupération. Les administrateurs peuvent aussi inviter un compte via `auth.admin.inviteUserByEmail`.
+3. Impose le second facteur pour les comptes admin et configure un fournisseur SMTP de production.
 4. Dans les URL de redirection autorisées, ajoute l'origine de production et les chemins de l'application, par exemple `https://ton-domaine.example/app/**`. Pour le développement local, ajoute l'origine HTTP locale utilisée par ton serveur de développement.
 5. Héberge l'application sur HTTPS. Ne l'ouvre pas en `file://`: les redirections e-mail et la politique CORS requièrent une origine web configurée.
 
@@ -50,7 +50,7 @@ Supabase fournit à la fonction les variables serveur `SUPABASE_URL`, `SUPABASE_
 
 ## 4. Créer le premier admin
 
-Les inscriptions publiques étant désactivées, invite le premier compte depuis le tableau de bord Supabase, puis exécute cette requête dans le SQL Editor en remplaçant l'adresse :
+Crée un compte depuis le formulaire de l'application et confirme son adresse e-mail, puis exécute cette requête dans le SQL Editor en remplaçant l'adresse :
 
 ```sql
 update auth.users
@@ -76,8 +76,8 @@ La clé publishable/anon est destinée au client; la sécurité des données vie
 
 ## Modèle de sécurité
 
-- Aucune commande de création de compte n'est exposée dans le navigateur; les inscriptions publiques doivent aussi rester désactivées dans Supabase.
-- La connexion et la récupération du mot de passe sont gérées par Supabase Auth.
+- La création publique de compte, la connexion et la récupération du mot de passe sont gérées par Supabase Auth; la confirmation e-mail doit rester activée.
+- Les inscriptions publiques doivent être activées dans Supabase pour que le formulaire de création de compte fonctionne.
 - La progression est cloisonnée par utilisateur dans PostgreSQL grâce à RLS.
 - Les admins doivent valider un second facteur TOTP; la fonction serveur exige aussi un JWT de niveau `aal2`.
 - Le bouton admin n'est qu'un contrôle d'interface; la fonction serveur revérifie toujours le JWT, le rôle admin et le second facteur.

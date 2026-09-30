@@ -51,7 +51,7 @@ img[src$="schedule.svg"] { filter: var(--icon-muted-filter); }
 .mfa-enrollment img { width: min(220px, 100%); height: auto; border: 1px solid var(--line); }
 .mfa-enrollment p { margin: 0; color: var(--muted); font-size: 13px; }
 .mfa-enrollment code { overflow-wrap: anywhere; font-size: 13px; }
-.auth-reset-button { min-height: 40px; margin-top: 10px; padding: 6px 0; border: 0; color: var(--coral-dark); background: transparent; font-weight: 700; cursor: pointer; }
+.auth-reset-button, .auth-mode-button { min-height: 40px; margin-top: 10px; padding: 6px 0; border: 0; color: var(--coral-dark); background: transparent; font-weight: 700; cursor: pointer; }
 .auth-feedback, .auth-config-message { margin: 12px 0 0; padding: 10px 12px; border-radius: 7px; color: var(--ink); background: #f6f5fc; font-size: 13px; line-height: 1.5; }
 .auth-feedback.is-error, .auth-config-message { color: var(--danger); background: var(--danger-soft); }
 .account-email { max-width: 220px; overflow: hidden; color: var(--muted); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
