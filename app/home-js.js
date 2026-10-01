@@ -13,6 +13,7 @@
 		let activeSeriesId = null;
 		let activeMode = "qcm";
 		let quizSession = null;
+		const isUserAdmin = (user) => window.CodeBookAdmin ? window.CodeBookAdmin.isAdminRoleUser(user) : user?.app_metadata?.role === "admin";
 
 		function parseQuizPayload(rawText) {
 			if (!rawText || !rawText.trim()) return null;
@@ -237,9 +238,11 @@
 			const percent = profile.answers ? Math.round(profile.correct / profile.answers * 100) : 0;
 			const user = currentUser || { email: "", user_metadata: {}, app_metadata: {} };
 			const accountName = user.user_metadata?.display_name || (user.email ? user.email.split("@")[0] : "Utilisateur");
+			const isAdmin = isUserAdmin(user);
+			document.querySelector("#admin-tag").hidden = !isAdmin;
 			document.querySelector("#account-email").textContent = user.email || "";
 			document.querySelector("#welcome-name").textContent = accountName;
-			document.querySelector("#open-admin").hidden = user.app_metadata?.role !== "admin";
+			document.querySelector("#open-admin").hidden = !isAdmin;
 			document.querySelector("#stat-quizzes").textContent = profile.quizzes;
 			document.querySelector("#stat-score").textContent = `${percent}%`;
 			document.querySelector("#stat-answers").textContent = profile.answers;
@@ -552,6 +555,8 @@
 			document.querySelector("#app-shell").hidden = false;
 			document.querySelector("#sync-status").textContent = "Chargement de ta progression…";
 			try {
+				const isAdmin = await window.CodeBookAdmin.resolveAdminAccess(supabaseClient, currentUser);
+				currentUser.is_admin = isAdmin;
 				await loadProgress(currentUser);
 				document.querySelector("#sync-status").textContent = "";
 			} catch (error) {
@@ -575,7 +580,8 @@
 				showPasswordSetup(session);
 				return;
 			}
-			if (session.user.app_metadata?.role === "admin") {
+			const isAdmin = await window.CodeBookAdmin.resolveAdminAccess(supabaseClient, session.user);
+			if (isAdmin) {
 				if (adminMfaPending) return;
 				adminMfaPending = true;
 				try {
@@ -739,12 +745,12 @@
 				await supabaseClient.auth.signOut();
 			});
 			document.querySelector("#open-admin").addEventListener("click", () => {
-				if (currentUser?.app_metadata?.role === "admin") document.querySelector("#admin-dialog").showModal();
+				if (isUserAdmin(currentUser)) document.querySelector("#admin-dialog").showModal();
 			});
 			document.querySelector("#invite-user-form").addEventListener("submit", async (event) => {
 				event.preventDefault();
 				const feedback = document.querySelector("#invite-feedback");
-				if (currentUser?.app_metadata?.role !== "admin") return;
+				if (!isUserAdmin(currentUser)) return;
 				const email = document.querySelector("#invite-email").value.trim();
 				const { error } = await supabaseClient.functions.invoke("admin-invite-user", { body: { email } });
 				feedback.textContent = error ? "Invitation impossible. Vérifie les droits admin et la configuration serveur." : "Invitation envoyée.";

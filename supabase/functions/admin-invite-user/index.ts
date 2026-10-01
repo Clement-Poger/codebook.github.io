@@ -19,6 +19,21 @@ function respond(body: Record<string, string>, status: number, origin: string) {
 	});
 }
 
+async function isAdminUser(client: ReturnType<typeof createClient>, user: { id: string; app_metadata?: { role?: string; is_admin?: boolean }; user_metadata?: { role?: string; is_admin?: boolean } }) {
+	if (user.app_metadata?.role === "admin" || user.app_metadata?.is_admin === true) return true;
+	if (user.user_metadata?.role === "admin" || user.user_metadata?.is_admin === true) return true;
+	for (const tableName of ["profiles", "user_roles"]) {
+		const { data, error } = await client.from(tableName).select("is_admin, role").eq("id", user.id).maybeSingle();
+		if (error) {
+			if (error.code === "42P01" || error.code === "PGRST116" || error.code === "PGRST205") continue;
+			console.warn(`Admin lookup failed for ${tableName}`, error.message);
+			continue;
+		}
+		if (data && (data.is_admin === true || data.role === "admin")) return true;
+	}
+	return false;
+}
+
 Deno.serve(async (request) => {
 	const requestOrigin = request.headers.get("origin") ?? "";
 	let allowedOrigin = "";
@@ -42,7 +57,7 @@ Deno.serve(async (request) => {
 	});
 	const { data: { user }, error: userError } = await caller.auth.getUser(accessToken);
 	if (userError || !user) return respond({ error: "Unauthorized" }, 401, allowedOrigin);
-	if (user.app_metadata?.role !== "admin") return respond({ error: "Forbidden" }, 403, allowedOrigin);
+	if (!(await isAdminUser(caller, user))) return respond({ error: "Forbidden" }, 403, allowedOrigin);
 	try {
 		const encodedClaims = accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
 		const claims = JSON.parse(atob(encodedClaims.padEnd(Math.ceil(encodedClaims.length / 4) * 4, "=")));
