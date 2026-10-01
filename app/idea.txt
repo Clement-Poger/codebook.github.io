@@ -1,0 +1,87 @@
+CodeBook — Charte graphique
+Version 1.0 · 30 septembre 2026
+
+1. Intention
+CodeBook est une application d'entraînement pour les étudiants de niveau B1. L'interface doit rendre la révision simple à démarrer, agréable à répéter et assez claire pour que l'étudiant comprenne ses erreurs. Le ton est direct, encourageant et inclusif, sans infantiliser.
+
+2. Direction artistique
+Une interface d'étude lumineuse et structurée, inspirée de l'identité Coda School: citron vert vif, violet électrique, bleu franc et neutres froids. Les surfaces restent sobres pour préserver la lisibilité; les accents signalent les actions, les thèmes et les retours de quiz. Utiliser des formes nettes, des bordures fines et des rayons modérés plutôt que des panneaux décoratifs.
+
+3. Palette complète
+Couleurs principales extraites
+- Citron — #DDF849 — accent de marque, repères de réussite et bouton principal avec texte sombre.
+- Violet électrique — #4B00EB — actions secondaires, liens et états sélectionnés.
+- Violet profond — #2C0286 — survol des actions violettes et accent de progression.
+- Encre nocturne — #080331 — texte principal, titres et éléments de navigation.
+- Fond lavande — #F6F5FC — arrière-plan général.
+- Surface claire — #FAF9FF — surfaces légèrement teintées et navigation.
+- Blanc — #FFFFFF — panneaux et champs.
+- Ligne neutre — #E8E8EE — séparateurs, contours et contrôles inactifs.
+- Bleu — #2D40EA — repères secondaires et thème GNU/Linux.
+- Bleu clair — #D9E5FF — fond des accents bleus.
+- Gris secondaire — #5D6C7B — descriptions, métadonnées et aide.
+- Gris neutre — #222222 — libellés secondaires à contraste renforcé.
+- Lavande de soutien — #EBE9F5 — états sélectionnés doux et icônes.
+
+Couleurs supplémentaires de l'extraction
+Les couleurs ci-dessous existent dans la feuille de référence et peuvent être utilisées ponctuellement quand leur rôle le justifie: #6425F5 (violet d'interaction), #3C59FF (bleu vif), #3898EC (bleu clair), #6A6790 (violet grisé), #9B9BAD (gris), #FAFAFA (surface neutre) et #E8E8EE (neutre clair).
+
+Couleurs sémantiques complémentaires
+- Erreur — #A33234 — texte et bordure d'une réponse incorrecte.
+- Fond d'erreur — #FCEBEA — fond d'un feedback incorrect.
+- Voile modal — #050419 à 65 % d'opacité — assombrissement derrière les dialogues.
+
+Règles de contraste et d'emploi
+- Utiliser #080331 sur les fonds clairs pour le texte courant.
+- Le citron #DDF849 est réservé aux fonds d'accent et aux boutons avec texte sombre; ne jamais l'employer comme couleur de texte sur blanc.
+- Employer le violet #4B00EB pour les commandes sélectionnées et avec un libellé accessible; vérifier le contraste des variantes.
+- Le bleu est un accent fonctionnel; ne pas colorer de longs paragraphes.
+- Une information ne doit jamais être communiquée par la couleur seule: ajouter texte, forme ou icône accessible.
+- Les états désactivés, les erreurs et les validations conservent un contraste lisible.
+
+4. Typographie
+- Titres et chiffres saillants: Space Grotesk, graisses 500 à 700; solution de repli Trebuchet MS, sans-serif.
+- Texte, formulaires et navigation: DM Sans, graisses 400 à 700; solution de repli Trebuchet MS, sans-serif.
+- Titres courts et compacts; texte courant confortable et aéré.
+- Échelle indicative: titre de page 36 px (30 px sur petit écran), titre de section 18–21 px, texte courant 14–15 px, métadonnées 11–13 px.
+- Éviter les longues capitales, les paragraphes en gras et les tailles dépendant de la largeur de fenêtre.
+
+5. Mise en page et composants
+- Concevoir d'abord pour mobile; limiter le contenu principal à environ 1160 px sur grand écran.
+- Utiliser des colonnes et grilles qui se replient sans perte d'information; conserver une cible tactile confortable, idéalement 40 px minimum.
+- Rayons usuels: 7–10 px pour boutons, champs et panneaux; avatar circulaire.
+- Bordure fine #E8E8EE et fond blanc ou #FAF9FF pour distinguer les surfaces, sans ombres lourdes.
+- Utiliser les boutons pour les commandes, les boutons segmentés pour les modes, les cases à cocher pour les options binaires et les listes déroulantes pour les choix de quantité ou de profil.
+- Les thèmes ont chacun un signe distinctif et une couleur de soutien. Les séries affichent titre, durée indicative et nombre de questions.
+- Dialogues réservés aux tâches focalisées: question de quiz, résultat et gestion du profil.
+
+6. Iconographie et avatars
+- Privilégier des pictogrammes simples, cohérents et immédiatement compréhensibles; un symbole n'est jamais le seul moyen de nommer une action.
+- Les avatars sont choisis dans une liste prédéfinie. Le nom du profil reste visible dans l'interface et peut être modifié.
+- Les emoji peuvent être utilisés comme avatars ou touches ponctuelles, pas comme remplacement systématique des icônes d'action.
+
+7. Interaction et feedback
+- Montrer clairement le thème, la série, le mode, le nombre de questions et l'avancement.
+- Permettre QCM, réponse écrite et format aléatoire; proposer correction immédiate ou récapitulative, mélange des questions et durée courte.
+- Corriger sans culpabiliser: expliquer brièvement la réponse et donner une prochaine étape.
+- Distinguer sélection, survol, focus clavier, réponse correcte, réponse incorrecte et désactivation.
+- Respecter prefers-reduced-motion; les animations restent rares et rapides.
+- Confirmer les changements de profil et donner un retour visible après la fin d'un quiz.
+
+8. Voix et rédaction
+- Langue par défaut: français clair, phrases courtes et verbes d'action.
+- Tutoiement constant pour s'adresser à l'étudiant.
+- Dire « réponse attendue » ou « pas tout à fait » plutôt que blâmer l'erreur.
+- Éviter le jargon technique non expliqué et les textes promotionnels.
+
+9. Progression et données
+- La progression est séparée par profil: quiz terminés, réponses, score par thème et sessions récentes.
+- Dans la version locale, enregistrer les profils et préférences dans localStorage avec des clés versionnées; tolérer les données absentes ou invalides et ne jamais bloquer l'entraînement si la sauvegarde échoue.
+- localStorage n'est pas un mécanisme d'authentification ni un stockage sécurisé. Une future connexion doit s'appuyer sur un service d'identité et une sauvegarde serveur; garder alors les composants de quiz indépendants du mécanisme de session.
+- Une page de connexion pourra précéder l'accueil sans modifier le parcours de sélection thème > série > mode > quiz.
+
+10. À éviter
+- Ne pas employer de texte gris pâle illisible, de couleur seule pour transmettre un statut, de boutons sans libellé accessible ou de confirmation ambiguë.
+- Ne pas transformer la page d'accueil en page marketing; l'accès au choix de quiz et à la progression est prioritaire.
+- Ne pas utiliser une carte dans une autre carte, de grandes surfaces de couleur uniforme ou des dégradés décoratifs qui détournent l'attention.
+- Ne pas présenter les données locales comme une sauvegarde synchronisée ou un compte sécurisé.
