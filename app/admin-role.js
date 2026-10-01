@@ -2,9 +2,6 @@
 	function isAdminRoleUser(user) {
 		if (!user || typeof user !== "object") return false;
 		if (user.app_metadata?.role === "admin" || user.app_metadata?.is_admin === true) return true;
-		if (user.user_metadata?.role === "admin" || user.user_metadata?.is_admin === true) return true;
-		if (user.is_admin === true || user.role === "admin") return true;
-		if (typeof user.admin === "boolean" && user.admin) return true;
 		return false;
 	}
 

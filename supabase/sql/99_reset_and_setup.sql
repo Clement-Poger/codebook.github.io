@@ -1,27 +1,19 @@
--- 99_reset_and_setup.sql
--- Script unique pour remettre Supabase à zéro puis reconstruire les tables et politiques.
+-- Script unique de reset et de configuration CodeBook.
+-- Avertissement : supprime public.profiles et public.quiz_progress, y compris leurs données.
 -- Usage : exécuter ce fichier dans le SQL Editor de Supabase.
 
+begin;
+
 -- =============================================================
--- RESET COMPLET (optionnel mais utile pour recréer proprement)
+-- RESET DES TABLES DE L'APPLICATION
 -- =============================================================
 
-drop policy if exists "Users can read their own progress" on public.quiz_progress;
-drop policy if exists "Users can create their own progress" on public.quiz_progress;
-drop policy if exists "Users can update their own progress" on public.quiz_progress;
-drop policy if exists "Users can delete their own progress" on public.quiz_progress;
-drop trigger if exists set_quiz_progress_updated_at on public.quiz_progress;
-drop function if exists public.set_quiz_progress_updated_at();
 drop table if exists public.quiz_progress;
-
-drop policy if exists "Users can read their own profile" on public.profiles;
-drop policy if exists "Admins can read all profiles" on public.profiles;
-drop policy if exists "Users can create their own profile" on public.profiles;
-drop policy if exists "Users can update their own profile" on public.profiles;
-drop policy if exists "Admins can update any profile" on public.profiles;
-drop trigger if exists set_profiles_updated_at on public.profiles;
-drop function if exists public.set_profiles_updated_at();
 drop table if exists public.profiles;
+
+drop function if exists public.set_quiz_progress_updated_at();
+drop function if exists public.is_current_user_admin();
+drop function if exists public.set_profiles_updated_at();
 
 -- =============================================================
 -- SETUP PROFILES / ADMIN
@@ -38,7 +30,7 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 revoke all on table public.profiles from anon, public;
-grant select, insert, update on table public.profiles to authenticated;
+grant select, update on table public.profiles to authenticated;
 
 create or replace function public.set_profiles_updated_at()
 returns trigger
@@ -57,6 +49,24 @@ before update on public.profiles
 for each row
 execute function public.set_profiles_updated_at();
 
+create or replace function public.is_current_user_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = (select auth.uid())
+      and (is_admin = true or role = 'admin')
+  );
+$$;
+
+revoke all on function public.is_current_user_admin() from public, anon;
+grant execute on function public.is_current_user_admin() to authenticated;
+
 create policy "Users can read their own profile"
 on public.profiles
 for select
@@ -68,47 +78,15 @@ on public.profiles
 for select
 to authenticated
 using (
-  exists (
-    select 1
-    from public.profiles p
-    where p.id = auth.uid()
-      and (p.is_admin = true or p.role = 'admin')
-  )
+  public.is_current_user_admin()
 );
-
-create policy "Users can create their own profile"
-on public.profiles
-for insert
-to authenticated
-with check (auth.uid() = id);
-
-create policy "Users can update their own profile"
-on public.profiles
-for update
-to authenticated
-using (auth.uid() = id)
-with check (auth.uid() = id);
 
 create policy "Admins can update any profile"
 on public.profiles
 for update
 to authenticated
-using (
-  exists (
-    select 1
-    from public.profiles p
-    where p.id = auth.uid()
-      and (p.is_admin = true or p.role = 'admin')
-  )
-)
-with check (
-  exists (
-    select 1
-    from public.profiles p
-    where p.id = auth.uid()
-      and (p.is_admin = true or p.role = 'admin')
-  )
-);
+using (public.is_current_user_admin())
+with check (public.is_current_user_admin());
 
 -- =============================================================
 -- SETUP QUIZ PROGRESS
@@ -190,3 +168,5 @@ do update set
 select *
 from public.profiles
 where id = '87bcaa7f-aee4-43cb-a168-3184c5ad74da';
+
+commit;

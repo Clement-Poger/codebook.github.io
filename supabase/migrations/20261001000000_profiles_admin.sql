@@ -10,9 +10,9 @@ create table if not exists public.profiles (
 alter table public.profiles enable row level security;
 
 revoke all on table public.profiles from anon, public;
-grant select, insert, update on table public.profiles to authenticated;
+grant select, update on table public.profiles to authenticated;
 
-create function if not exists public.set_profiles_updated_at()
+create or replace function public.set_profiles_updated_at()
 returns trigger
 language plpgsql
 security definer
@@ -30,6 +30,24 @@ before update on public.profiles
 for each row
 execute function public.set_profiles_updated_at();
 
+create or replace function public.is_current_user_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (
+        select 1
+        from public.profiles
+        where id = (select auth.uid())
+          and (is_admin = true or role = 'admin')
+    );
+$$;
+
+revoke all on function public.is_current_user_admin() from public, anon;
+grant execute on function public.is_current_user_admin() to authenticated;
+
 create policy "Users can read their own profile"
     on public.profiles
     for select
@@ -40,45 +58,14 @@ create policy "Admins can read all profiles"
     on public.profiles
     for select
     to authenticated
-    using (
-        exists (
-            select 1
-            from public.profiles p
-            where p.id = auth.uid() and (p.is_admin = true or p.role = 'admin')
-        )
-    );
-
-create policy "Users can create their own profile"
-    on public.profiles
-    for insert
-    to authenticated
-    with check (auth.uid() = id);
-
-create policy "Users can update their own profile"
-    on public.profiles
-    for update
-    to authenticated
-    using (auth.uid() = id)
-    with check (auth.uid() = id);
+    using (public.is_current_user_admin());
 
 create policy "Admins can update any profile"
     on public.profiles
     for update
     to authenticated
-    using (
-        exists (
-            select 1
-            from public.profiles p
-            where p.id = auth.uid() and (p.is_admin = true or p.role = 'admin')
-        )
-    )
-    with check (
-        exists (
-            select 1
-            from public.profiles p
-            where p.id = auth.uid() and (p.is_admin = true or p.role = 'admin')
-        )
-    );
+    using (public.is_current_user_admin())
+    with check (public.is_current_user_admin());
 
 -- Example of promotion :
 -- update public.profiles set is_admin = true, role = 'admin' where id = '<USER_UUID>';

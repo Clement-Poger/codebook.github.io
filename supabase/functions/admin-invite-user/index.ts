@@ -21,7 +21,6 @@ function respond(body: Record<string, string>, status: number, origin: string) {
 
 async function isAdminUser(client: ReturnType<typeof createClient>, user: { id: string; app_metadata?: { role?: string; is_admin?: boolean }; user_metadata?: { role?: string; is_admin?: boolean } }) {
 	if (user.app_metadata?.role === "admin" || user.app_metadata?.is_admin === true) return true;
-	if (user.user_metadata?.role === "admin" || user.user_metadata?.is_admin === true) return true;
 	for (const tableName of ["profiles", "user_roles"]) {
 		const { data, error } = await client.from(tableName).select("is_admin, role").eq("id", user.id).maybeSingle();
 		if (error) {
