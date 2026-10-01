@@ -135,10 +135,11 @@
 		function renderDashboard() {
 			const profile = currentProfile();
 			const percent = profile.answers ? Math.round(profile.correct / profile.answers * 100) : 0;
-			const accountName = currentUser.user_metadata?.display_name || currentUser.email.split("@")[0];
-			document.querySelector("#account-email").textContent = currentUser.email;
+			const user = currentUser || { email: "", user_metadata: {}, app_metadata: {} };
+			const accountName = user.user_metadata?.display_name || (user.email ? user.email.split("@")[0] : "Utilisateur");
+			document.querySelector("#account-email").textContent = user.email || "";
 			document.querySelector("#welcome-name").textContent = accountName;
-			document.querySelector("#open-admin").hidden = currentUser.app_metadata?.role !== "admin";
+			document.querySelector("#open-admin").hidden = user.app_metadata?.role !== "admin";
 			document.querySelector("#stat-quizzes").textContent = profile.quizzes;
 			document.querySelector("#stat-score").textContent = `${percent}%`;
 			document.querySelector("#stat-answers").textContent = profile.answers;
@@ -176,11 +177,14 @@
 		}
 
 		function startQuiz() {
-			const series = quizData[activeTheme].series.find((item) => item.id === activeSeriesId);
+			const theme = quizData[activeTheme];
+			const series = theme?.series?.find((item) => item.id === activeSeriesId);
+			if (!theme || !series || !series.questions?.length) return;
 			let questions = series.questions.map((question) => ({ ...question, choices: [...question.choices] }));
 			if (document.querySelector("#shuffle-questions").checked) questions = questions.sort(() => Math.random() - 0.5);
 			const requestedCount = document.querySelector("#question-count").value;
 			if (requestedCount !== "all") questions = questions.slice(0, Number(requestedCount));
+			if (!questions.length) return;
 			quizSession = { theme: activeTheme, series, questions, index: 0, responses: [], waiting: false, immediate: document.querySelector("#show-feedback").checked };
 			document.querySelector("#quiz-dialog-title").textContent = quizData[activeTheme].name;
 			document.querySelector("#quiz-series-name").textContent = series.name;
@@ -191,7 +195,9 @@
 		}
 
 		function renderQuestion() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			const question = quizSession.questions[quizSession.index];
+			if (!question) return;
 			const count = quizSession.questions.length;
 			const progress = Math.round((quizSession.index + 1) / count * 100);
 			const format = activeMode === "aleatoire" ? (Math.random() < 0.5 ? "qcm" : "texte") : activeMode;
@@ -238,18 +244,22 @@
 		}
 
 		function submitTextAnswer() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			if (quizSession.waiting) return;
 			const input = document.querySelector("#text-answer");
-			const value = input.value.trim();
-			if (!value) { input.focus(); return; }
+			const value = input?.value?.trim();
+			if (!value) { input?.focus(); return; }
 			const question = quizSession.questions[quizSession.index];
+			if (!question) return;
 			const correct = question.accepted.some((answer) => normalizeAnswer(answer) === normalizeAnswer(value));
 			submitAnswer(question.answer, value, null, correct);
 		}
 
 		function submitAnswer(answerIndex, answerText, selectedButton, textResult) {
+			if (!quizSession || !quizSession.questions?.length) return;
 			if (quizSession.waiting) return;
 			const question = quizSession.questions[quizSession.index];
+			if (!question) return;
 			const correct = typeof textResult === "boolean" ? textResult : answerIndex === question.answer;
 			quizSession.responses.push({ question, answerText, correct });
 			if (!quizSession.immediate) {
@@ -281,6 +291,7 @@
 		}
 
 		function advanceQuestion() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			if (quizSession.index + 1 < quizSession.questions.length) {
 				quizSession.index += 1;
 				renderQuestion();
@@ -290,6 +301,7 @@
 		}
 
 		function showResults() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			const score = quizSession.responses.filter((response) => response.correct).length;
 			const total = quizSession.questions.length;
 			const profile = currentProfile();
