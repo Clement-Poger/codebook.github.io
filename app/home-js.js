@@ -1,5 +1,4 @@
-		const quizData = window.quizData;
-		if (!quizData) throw new Error("Les fichiers de questions par thème n'ont pas été chargés.");
+		let quizData = window.quizData || {};
 		const modeCaptions = { qcm: "Choisis parmi plusieurs propositions.", texte: "Écris ta réponse avec tes propres mots.", aleatoire: "Le format change au fil des questions." };
 		const themeIcons = { ethique: "balance.svg", gnu_linux: "terminal.svg" };
 		let supabaseClient = null;
@@ -11,9 +10,54 @@
 		let adminMfaPending = false;
 		let progressData = createEmptyProgress();
 		let activeTheme = "ethique";
-		let activeSeriesId = quizData[activeTheme].series[0].id;
+		let activeSeriesId = null;
 		let activeMode = "qcm";
 		let quizSession = null;
+
+		async function loadQuizDataFromSupabase() {
+			const config = window.SUPABASE_CONFIG || {};
+			if (!config.url || !config.anonKey) return null;
+			const bucket = config.quizBucket || config.storageBucket || "quiz-data";
+			const storagePaths = config.quizStoragePaths || {
+				ethique: ["ethique.json", "questions/ethique.json", "quizzes/ethique.json"],
+				gnu_linux: ["gnu_linux.json", "questions/gnu_linux.json", "quizzes/gnu_linux.json"]
+			};
+			const remoteQuizData = {};
+			for (const [themeId, candidates] of Object.entries(storagePaths)) {
+				const normalizedCandidates = Array.isArray(candidates) ? candidates : [candidates];
+				for (const candidate of normalizedCandidates) {
+					const path = candidate.replace(/^\/+/, "");
+					const publicUrl = `${config.url.replace(/\/+$/, "")}/storage/v1/object/public/${encodeURIComponent(bucket)}/${path.split("/").map((segment) => encodeURIComponent(segment)).join("/")}`;
+					try {
+						const response = await fetch(publicUrl, { headers: { apikey: config.anonKey } });
+						if (!response.ok) continue;
+						const payload = await response.json();
+						const data = payload?.data ?? payload;
+						if (data && typeof data === "object" && Array.isArray(data.series)) {
+							remoteQuizData[themeId] = data;
+							break;
+						}
+					} catch (error) {
+						console.warn(`Le fichier de quiz ${candidate} n’a pas pu être chargé depuis le bucket Supabase.`, error);
+					}
+				}
+			}
+			return Object.keys(remoteQuizData).length ? remoteQuizData : null;
+		}
+
+		async function initializeQuizData() {
+			const remoteQuizData = await loadQuizDataFromSupabase();
+			if (remoteQuizData && Object.keys(remoteQuizData).length) {
+				quizData = remoteQuizData;
+			} else if (!Object.keys(quizData).length) {
+				throw new Error("Les fichiers de questions par thème n'ont pas été chargés.");
+			}
+			const firstTheme = Object.keys(quizData)[0];
+			if (firstTheme) {
+				activeTheme = firstTheme;
+				activeSeriesId = quizData[firstTheme]?.series?.[0]?.id || null;
+			}
+		}
 
 		function createEmptyProgress() {
 			return { quizzes: 0, correct: 0, answers: 0, byTheme: {}, recent: [] };
@@ -682,4 +726,12 @@
 		document.querySelector("#open-help").addEventListener("click", () => document.querySelector("#help-dialog").showModal());
 		document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => document.getElementById(button.dataset.close).close()));
 		document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
-		initializeAuth();
+		async function initializeApp() {
+			try {
+				await initializeQuizData();
+			} catch (error) {
+				console.error(error);
+			}
+			initializeAuth();
+		}
+		initializeApp();
