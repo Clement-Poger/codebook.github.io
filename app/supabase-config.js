@@ -1,5 +1,9 @@
 window.SUPABASE_CONFIG = {
 	url: "https://fgvhwgcdqnypulbgonop.supabase.co",
 	anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZndmh3Z2NkcW55cHVsYmdvbm9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3ODg3NDksImV4cCI6MjEwNjM2NDc0OX0.BK9FZwWZzfGoeF332CgSvsyUBAVG5VngKWHpKqAnG4s",
-	appUrl: "https://clement-poger.github.io/codebook.github.io/app/home.html"
+	appUrl: "https://clement-poger.github.io/codebook.github.io/app/home.html",
+	quizDataSources: {
+		ethique: "https://fgvhwgcdqnypulbgonop.supabase.co/storage/v1/object/sign/CodeBook/ethique/quiz.js?token=eyJraWQiOiJhODExZmVkZi1mYzliLTRiMmMtOWRhMy1hYWI5NDMxZTc4YTQiLCJhbGciOiJIUzUxMiJ9.eyJ1cmwiOiJDb2RlQm9vay9ldGhpcXVlL3F1aXouanMiLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzkwODg5NTA1LCJleHAiOjMzMzI2ODg5NTA1fQ.36069QW5mBddF3DH_rHv9y3TWtwo5vvvcxaWtTZ4Db0P27lHUmdUZ9LulshTDkRfaWLTtGxv8irBlE2acyYKXw",
+		gnu_linux: "https://fgvhwgcdqnypulbgonop.supabase.co/storage/v1/object/sign/CodeBook/gnu_linux/quiz.js?token=eyJraWQiOiJhODExZmVkZi1mYzliLTRiMmMtOWRhMy1hYWI5NDMxZTc4YTQiLCJhbGciOiJIUzUxMiJ9.eyJ1cmwiOiJDb2RlQm9vay9nbnVfbGludXgvcXVpei5qcyIsInNjb3BlIjoiZG93bmxvYWQiLCJpYXQiOjE3OTA4ODk1NTAsImV4cCI6MzMzMjY4ODk1NTB9.HsEIYOLanhBTdkJ6rH3ZDKJdLRNP4boc3Tn3jtWeXLeJCjeLeqMw6ICCYlF2QHCW3xm4RmTHt-iN3il7TpvIcg"
+	}
 };

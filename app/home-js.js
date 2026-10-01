@@ -1,19 +1,117 @@
-		const quizData = window.quizData;
-		if (!quizData) throw new Error("Les fichiers de questions par thème n'ont pas été chargés.");
+		let quizData = window.quizData || {};
 		const modeCaptions = { qcm: "Choisis parmi plusieurs propositions.", texte: "Écris ta réponse avec tes propres mots.", aleatoire: "Le format change au fil des questions." };
 		const themeIcons = { ethique: "balance.svg", gnu_linux: "terminal.svg" };
 		let supabaseClient = null;
 		let currentUser = null;
 		let loadedUserId = null;
 		let passwordSetupInProgress = false;
-		let mfaFactorId = null;
-		let mfaChallengeId = null;
-		let adminMfaPending = false;
 		let progressData = createEmptyProgress();
 		let activeTheme = "ethique";
-		let activeSeriesId = quizData[activeTheme].series[0].id;
+		let activeSeriesId = null;
 		let activeMode = "qcm";
 		let quizSession = null;
+		const isUserAdmin = (user) => window.CodeBookAdmin ? window.CodeBookAdmin.isAdminRoleUser(user) : user?.app_metadata?.role === "admin";
+
+		function parseQuizPayload(rawText) {
+			if (!rawText || !rawText.trim()) return null;
+			const trimmed = rawText.trim();
+			if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+				try {
+					const parsed = JSON.parse(trimmed);
+					if (parsed && typeof parsed === "object" && Array.isArray(parsed.series)) return parsed;
+					if (parsed && typeof parsed === "object" && Object.values(parsed).some((theme) => theme && typeof theme === "object" && Array.isArray(theme.series))) return parsed;
+				} catch (error) {
+					// Continue below for JS payloads.
+				}
+			}
+			try {
+				const script = new Function("window", `${trimmed}; return window.quizData ?? null;`);
+				const sandboxWindow = {};
+				const parsed = script(sandboxWindow);
+				if (parsed && typeof parsed === "object") {
+					if (Array.isArray(parsed.series)) return parsed;
+					if (Object.values(parsed).some((theme) => theme && typeof theme === "object" && Array.isArray(theme.series))) return parsed;
+				}
+			} catch (error) {
+				console.warn("Le fichier de quiz Supabase ne correspond pas à un payload exploitable.", error);
+			}
+			return null;
+		}
+
+		async function loadQuizDataFromSupabase() {
+			const config = window.SUPABASE_CONFIG || {};
+			const directSources = config.quizDataSources || {};
+			const remoteQuizData = {};
+			for (const [themeId, source] of Object.entries(directSources)) {
+				const candidates = Array.isArray(source) ? source : [source];
+				for (const candidate of candidates) {
+					if (!candidate) continue;
+					try {
+						const response = await fetch(candidate, { headers: config.anonKey ? { apikey: config.anonKey } : {} });
+						if (!response.ok) continue;
+						const text = await response.text();
+						const data = parseQuizPayload(text);
+						if (data && typeof data === "object") {
+							const extractedTheme = data[themeId] || data;
+							if (extractedTheme && typeof extractedTheme === "object" && Array.isArray(extractedTheme.series)) {
+								remoteQuizData[themeId] = extractedTheme;
+							} else if (Array.isArray(data.series)) {
+								remoteQuizData[themeId] = data;
+							}
+							break;
+						}
+					} catch (error) {
+						console.warn(`Le fichier de quiz ${candidate} n’a pas pu être chargé depuis Supabase.`, error);
+					}
+				}
+			}
+			if (Object.keys(remoteQuizData).length) return remoteQuizData;
+			if (!config.url || !config.anonKey) return null;
+			const bucket = config.quizBucket || config.storageBucket || "quiz-data";
+			const storagePaths = config.quizStoragePaths || {
+				ethique: ["ethique.json", "questions/ethique.json", "quizzes/ethique.json"],
+				gnu_linux: ["gnu_linux.json", "questions/gnu_linux.json", "quizzes/gnu_linux.json"]
+			};
+			for (const [themeId, candidates] of Object.entries(storagePaths)) {
+				const normalizedCandidates = Array.isArray(candidates) ? candidates : [candidates];
+				for (const candidate of normalizedCandidates) {
+					const path = candidate.replace(/^\/+/, "");
+					const publicUrl = `${config.url.replace(/\/+$/, "")}/storage/v1/object/public/${encodeURIComponent(bucket)}/${path.split("/").map((segment) => encodeURIComponent(segment)).join("/")}`;
+					try {
+						const response = await fetch(publicUrl, { headers: { apikey: config.anonKey } });
+						if (!response.ok) continue;
+						const text = await response.text();
+						const data = parseQuizPayload(text);
+						if (data && typeof data === "object") {
+							const extractedTheme = data[themeId] || data;
+							if (extractedTheme && typeof extractedTheme === "object" && Array.isArray(extractedTheme.series)) {
+								remoteQuizData[themeId] = extractedTheme;
+							} else if (Array.isArray(data.series)) {
+								remoteQuizData[themeId] = data;
+							}
+							break;
+						}
+					} catch (error) {
+						console.warn(`Le fichier de quiz ${candidate} n’a pas pu être chargé depuis le bucket Supabase.`, error);
+					}
+				}
+			}
+			return Object.keys(remoteQuizData).length ? remoteQuizData : null;
+		}
+
+		async function initializeQuizData() {
+			const remoteQuizData = await loadQuizDataFromSupabase();
+			if (remoteQuizData && Object.keys(remoteQuizData).length) {
+				quizData = remoteQuizData;
+			} else if (!Object.keys(quizData).length) {
+				throw new Error("Les fichiers de questions par thème n'ont pas été chargés.");
+			}
+			const firstTheme = Object.keys(quizData)[0];
+			if (firstTheme) {
+				activeTheme = firstTheme;
+				activeSeriesId = quizData[firstTheme]?.series?.[0]?.id || null;
+			}
+		}
 
 		function createEmptyProgress() {
 			return { quizzes: 0, correct: 0, answers: 0, byTheme: {}, recent: [] };
@@ -135,10 +233,13 @@
 		function renderDashboard() {
 			const profile = currentProfile();
 			const percent = profile.answers ? Math.round(profile.correct / profile.answers * 100) : 0;
-			const accountName = currentUser.user_metadata?.display_name || currentUser.email.split("@")[0];
-			document.querySelector("#account-email").textContent = currentUser.email;
+			const user = currentUser || { email: "", user_metadata: {}, app_metadata: {} };
+			const accountName = user.user_metadata?.display_name || (user.email ? user.email.split("@")[0] : "Utilisateur");
+			const isAdmin = isUserAdmin(user);
+			document.querySelector("#admin-tag").hidden = !isAdmin;
+			document.querySelector("#account-email").textContent = user.email || "";
 			document.querySelector("#welcome-name").textContent = accountName;
-			document.querySelector("#open-admin").hidden = currentUser.app_metadata?.role !== "admin";
+			document.querySelector("#open-admin").hidden = !isAdmin;
 			document.querySelector("#stat-quizzes").textContent = profile.quizzes;
 			document.querySelector("#stat-score").textContent = `${percent}%`;
 			document.querySelector("#stat-answers").textContent = profile.answers;
@@ -176,11 +277,14 @@
 		}
 
 		function startQuiz() {
-			const series = quizData[activeTheme].series.find((item) => item.id === activeSeriesId);
+			const theme = quizData[activeTheme];
+			const series = theme?.series?.find((item) => item.id === activeSeriesId);
+			if (!theme || !series || !series.questions?.length) return;
 			let questions = series.questions.map((question) => ({ ...question, choices: [...question.choices] }));
 			if (document.querySelector("#shuffle-questions").checked) questions = questions.sort(() => Math.random() - 0.5);
 			const requestedCount = document.querySelector("#question-count").value;
 			if (requestedCount !== "all") questions = questions.slice(0, Number(requestedCount));
+			if (!questions.length) return;
 			quizSession = { theme: activeTheme, series, questions, index: 0, responses: [], waiting: false, immediate: document.querySelector("#show-feedback").checked };
 			document.querySelector("#quiz-dialog-title").textContent = quizData[activeTheme].name;
 			document.querySelector("#quiz-series-name").textContent = series.name;
@@ -191,7 +295,9 @@
 		}
 
 		function renderQuestion() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			const question = quizSession.questions[quizSession.index];
+			if (!question) return;
 			const count = quizSession.questions.length;
 			const progress = Math.round((quizSession.index + 1) / count * 100);
 			const format = activeMode === "aleatoire" ? (Math.random() < 0.5 ? "qcm" : "texte") : activeMode;
@@ -238,18 +344,22 @@
 		}
 
 		function submitTextAnswer() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			if (quizSession.waiting) return;
 			const input = document.querySelector("#text-answer");
-			const value = input.value.trim();
-			if (!value) { input.focus(); return; }
+			const value = input?.value?.trim();
+			if (!value) { input?.focus(); return; }
 			const question = quizSession.questions[quizSession.index];
+			if (!question) return;
 			const correct = question.accepted.some((answer) => normalizeAnswer(answer) === normalizeAnswer(value));
 			submitAnswer(question.answer, value, null, correct);
 		}
 
 		function submitAnswer(answerIndex, answerText, selectedButton, textResult) {
+			if (!quizSession || !quizSession.questions?.length) return;
 			if (quizSession.waiting) return;
 			const question = quizSession.questions[quizSession.index];
+			if (!question) return;
 			const correct = typeof textResult === "boolean" ? textResult : answerIndex === question.answer;
 			quizSession.responses.push({ question, answerText, correct });
 			if (!quizSession.immediate) {
@@ -281,6 +391,7 @@
 		}
 
 		function advanceQuestion() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			if (quizSession.index + 1 < quizSession.questions.length) {
 				quizSession.index += 1;
 				renderQuestion();
@@ -290,6 +401,7 @@
 		}
 
 		function showResults() {
+			if (!quizSession || !quizSession.questions?.length) return;
 			const score = quizSession.responses.filter((response) => response.correct).length;
 			const total = quizSession.questions.length;
 			const profile = currentProfile();
@@ -353,7 +465,6 @@
 			document.querySelector("#login-form").hidden = false;
 			document.querySelector("#signup-form").hidden = true;
 			document.querySelector("#password-setup-form").hidden = true;
-			document.querySelector("#mfa-form").hidden = true;
 			document.querySelector("#auth-mode-toggle").hidden = false;
 			document.querySelector("#auth-mode-toggle").textContent = "Créer un compte";
 			document.querySelector("#request-password-reset").hidden = false;
@@ -368,7 +479,6 @@
 			document.querySelector("#login-form").hidden = true;
 			document.querySelector("#signup-form").hidden = false;
 			document.querySelector("#password-setup-form").hidden = true;
-			document.querySelector("#mfa-form").hidden = true;
 			document.querySelector("#auth-mode-toggle").hidden = false;
 			document.querySelector("#auth-mode-toggle").textContent = "J’ai déjà un compte";
 			document.querySelector("#request-password-reset").hidden = true;
@@ -384,31 +494,9 @@
 			document.querySelector("#login-form").hidden = true;
 			document.querySelector("#signup-form").hidden = true;
 			document.querySelector("#password-setup-form").hidden = false;
-			document.querySelector("#mfa-form").hidden = true;
 			document.querySelector("#auth-mode-toggle").hidden = true;
 			document.querySelector("#request-password-reset").hidden = true;
 			setAuthFeedback("Choisis un mot de passe d’au moins 12 caractères.");
-		}
-
-		function showMfaForm(prompt, enrollment = null) {
-			document.querySelector("#auth-screen").hidden = false;
-			document.querySelector("#app-shell").hidden = true;
-			document.querySelector("#auth-title").textContent = "Vérification de sécurité";
-			document.querySelector("#auth-copy").textContent = "Confirme ton identité pour continuer.";
-			document.querySelector("#login-form").hidden = true;
-			document.querySelector("#signup-form").hidden = true;
-			document.querySelector("#password-setup-form").hidden = true;
-			document.querySelector("#mfa-form").hidden = false;
-			document.querySelector("#auth-mode-toggle").hidden = true;
-			document.querySelector("#request-password-reset").hidden = true;
-			document.querySelector("#mfa-prompt").textContent = prompt;
-			const enrollmentPanel = document.querySelector("#mfa-enrollment");
-			enrollmentPanel.hidden = !enrollment;
-			if (enrollment) {
-				document.querySelector("#mfa-qr").src = enrollment.qrCode;
-				document.querySelector("#mfa-secret").textContent = enrollment.secret;
-			}
-			setAuthFeedback("");
 		}
 
 		function clearAuthFlow() {
@@ -440,6 +528,8 @@
 			document.querySelector("#app-shell").hidden = false;
 			document.querySelector("#sync-status").textContent = "Chargement de ta progression…";
 			try {
+				const isAdmin = await window.CodeBookAdmin.resolveAdminAccess(supabaseClient, currentUser);
+				currentUser.is_admin = isAdmin;
 				await loadProgress(currentUser);
 				document.querySelector("#sync-status").textContent = "";
 			} catch (error) {
@@ -463,52 +553,7 @@
 				showPasswordSetup(session);
 				return;
 			}
-			if (session.user.app_metadata?.role === "admin") {
-				if (adminMfaPending) return;
-				adminMfaPending = true;
-				try {
-					if (!await requireAdminMfa(session)) return;
-				} finally {
-					adminMfaPending = false;
-				}
-			}
 			await activateSession(session);
-		}
-
-		async function requireAdminMfa(session) {
-			const { data: assurance, error: assuranceError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
-			if (assuranceError) {
-				showLogin("La vérification de sécurité a échoué. Reconnecte-toi.");
-				return false;
-			}
-			if (assurance.currentLevel === "aal2") return true;
-			if (!document.querySelector("#mfa-form").hidden && mfaFactorId) return false;
-
-			const { data: factors, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
-			if (factorsError) {
-				showLogin("Le second facteur n’a pas pu être vérifié. Réessaie.");
-				return false;
-			}
-			let factor = (factors.totp || []).find((item) => item.status === "verified");
-			let enrollment = null;
-			if (!factor) {
-				const { data, error } = await supabaseClient.auth.mfa.enroll({ factorType: "totp", friendlyName: "CodeBook admin" });
-				if (error) {
-					showLogin("Le second facteur n’a pas pu être configuré. Contacte l’administrateur du projet.");
-					return false;
-				}
-				factor = data;
-				enrollment = { qrCode: data.totp.qr_code, secret: data.totp.secret };
-			}
-			mfaFactorId = factor.id;
-			const { data: challenge, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId: mfaFactorId });
-			if (challengeError) {
-				showLogin("Le code de vérification n’a pas pu être demandé. Réessaie.");
-				return false;
-			}
-			mfaChallengeId = challenge.id;
-			showMfaForm(enrollment ? "Scanne ce code avec une application d’authentification, puis saisis le code affiché." : "Saisis le code à 6 chiffres de ton application d’authentification.", enrollment);
-			return false;
 		}
 
 		async function initializeAuth() {
@@ -590,20 +635,6 @@
 				setAuthFeedback(error ? "La demande n’a pas pu être envoyée. Réessaie plus tard." : "Si un compte correspond à cette adresse, tu recevras un e-mail de récupération.", Boolean(error));
 			});
 
-			document.querySelector("#mfa-form").addEventListener("submit", async (event) => {
-				event.preventDefault();
-				const code = document.querySelector("#mfa-code").value.trim();
-				const { error } = await supabaseClient.auth.mfa.verify({ factorId: mfaFactorId, challengeId: mfaChallengeId, code });
-				if (error) {
-					setAuthFeedback("Code invalide ou expiré. Vérifie l’heure de ton appareil et réessaie.", true);
-					const { data: challenge } = await supabaseClient.auth.mfa.challenge({ factorId: mfaFactorId });
-					mfaChallengeId = challenge?.id || mfaChallengeId;
-					return;
-				}
-				const { data } = await supabaseClient.auth.getSession();
-				await handleAuthSession("MFA_VERIFIED", data.session);
-			});
-
 			document.querySelector("#password-setup-form").addEventListener("submit", async (event) => {
 				event.preventDefault();
 				const password = document.querySelector("#new-password").value;
@@ -627,12 +658,12 @@
 				await supabaseClient.auth.signOut();
 			});
 			document.querySelector("#open-admin").addEventListener("click", () => {
-				if (currentUser?.app_metadata?.role === "admin") document.querySelector("#admin-dialog").showModal();
+				if (isUserAdmin(currentUser)) document.querySelector("#admin-dialog").showModal();
 			});
 			document.querySelector("#invite-user-form").addEventListener("submit", async (event) => {
 				event.preventDefault();
 				const feedback = document.querySelector("#invite-feedback");
-				if (currentUser?.app_metadata?.role !== "admin") return;
+				if (!isUserAdmin(currentUser)) return;
 				const email = document.querySelector("#invite-email").value.trim();
 				const { error } = await supabaseClient.functions.invoke("admin-invite-user", { body: { email } });
 				feedback.textContent = error ? "Invitation impossible. Vérifie les droits admin et la configuration serveur." : "Invitation envoyée.";
@@ -670,4 +701,12 @@
 		document.querySelector("#open-help").addEventListener("click", () => document.querySelector("#help-dialog").showModal());
 		document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => document.getElementById(button.dataset.close).close()));
 		document.querySelectorAll("dialog").forEach((dialog) => dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); }));
-		initializeAuth();
+		async function initializeApp() {
+			try {
+				await initializeQuizData();
+			} catch (error) {
+				console.error(error);
+			}
+			initializeAuth();
+		}
+		initializeApp();
