@@ -57,13 +57,6 @@ Deno.serve(async (request) => {
 	const { data: { user }, error: userError } = await caller.auth.getUser(accessToken);
 	if (userError || !user) return respond({ error: "Unauthorized" }, 401, allowedOrigin);
 	if (!(await isAdminUser(caller, user))) return respond({ error: "Forbidden" }, 403, allowedOrigin);
-	try {
-		const encodedClaims = accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-		const claims = JSON.parse(atob(encodedClaims.padEnd(Math.ceil(encodedClaims.length / 4) * 4, "=")));
-		if (claims.aal !== "aal2") return respond({ error: "MFA required" }, 403, allowedOrigin);
-	} catch {
-		return respond({ error: "Unauthorized" }, 401, allowedOrigin);
-	}
 
 	let email = "";
 	try {

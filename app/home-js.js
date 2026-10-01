@@ -5,9 +5,6 @@
 		let currentUser = null;
 		let loadedUserId = null;
 		let passwordSetupInProgress = false;
-		let mfaFactorId = null;
-		let mfaChallengeId = null;
-		let adminMfaPending = false;
 		let progressData = createEmptyProgress();
 		let activeTheme = "ethique";
 		let activeSeriesId = null;
@@ -468,7 +465,6 @@
 			document.querySelector("#login-form").hidden = false;
 			document.querySelector("#signup-form").hidden = true;
 			document.querySelector("#password-setup-form").hidden = true;
-			document.querySelector("#mfa-form").hidden = true;
 			document.querySelector("#auth-mode-toggle").hidden = false;
 			document.querySelector("#auth-mode-toggle").textContent = "Créer un compte";
 			document.querySelector("#request-password-reset").hidden = false;
@@ -483,7 +479,6 @@
 			document.querySelector("#login-form").hidden = true;
 			document.querySelector("#signup-form").hidden = false;
 			document.querySelector("#password-setup-form").hidden = true;
-			document.querySelector("#mfa-form").hidden = true;
 			document.querySelector("#auth-mode-toggle").hidden = false;
 			document.querySelector("#auth-mode-toggle").textContent = "J’ai déjà un compte";
 			document.querySelector("#request-password-reset").hidden = true;
@@ -499,31 +494,9 @@
 			document.querySelector("#login-form").hidden = true;
 			document.querySelector("#signup-form").hidden = true;
 			document.querySelector("#password-setup-form").hidden = false;
-			document.querySelector("#mfa-form").hidden = true;
 			document.querySelector("#auth-mode-toggle").hidden = true;
 			document.querySelector("#request-password-reset").hidden = true;
 			setAuthFeedback("Choisis un mot de passe d’au moins 12 caractères.");
-		}
-
-		function showMfaForm(prompt, enrollment = null) {
-			document.querySelector("#auth-screen").hidden = false;
-			document.querySelector("#app-shell").hidden = true;
-			document.querySelector("#auth-title").textContent = "Vérification de sécurité";
-			document.querySelector("#auth-copy").textContent = "Confirme ton identité pour continuer.";
-			document.querySelector("#login-form").hidden = true;
-			document.querySelector("#signup-form").hidden = true;
-			document.querySelector("#password-setup-form").hidden = true;
-			document.querySelector("#mfa-form").hidden = false;
-			document.querySelector("#auth-mode-toggle").hidden = true;
-			document.querySelector("#request-password-reset").hidden = true;
-			document.querySelector("#mfa-prompt").textContent = prompt;
-			const enrollmentPanel = document.querySelector("#mfa-enrollment");
-			enrollmentPanel.hidden = !enrollment;
-			if (enrollment) {
-				document.querySelector("#mfa-qr").src = enrollment.qrCode;
-				document.querySelector("#mfa-secret").textContent = enrollment.secret;
-			}
-			setAuthFeedback("");
 		}
 
 		function clearAuthFlow() {
@@ -580,53 +553,7 @@
 				showPasswordSetup(session);
 				return;
 			}
-			const isAdmin = await window.CodeBookAdmin.resolveAdminAccess(supabaseClient, session.user);
-			if (isAdmin) {
-				if (adminMfaPending) return;
-				adminMfaPending = true;
-				try {
-					if (!await requireAdminMfa(session)) return;
-				} finally {
-					adminMfaPending = false;
-				}
-			}
 			await activateSession(session);
-		}
-
-		async function requireAdminMfa(session) {
-			const { data: assurance, error: assuranceError } = await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel();
-			if (assuranceError) {
-				showLogin("La vérification de sécurité a échoué. Reconnecte-toi.");
-				return false;
-			}
-			if (assurance.currentLevel === "aal2") return true;
-			if (!document.querySelector("#mfa-form").hidden && mfaFactorId) return false;
-
-			const { data: factors, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
-			if (factorsError) {
-				showLogin("Le second facteur n’a pas pu être vérifié. Réessaie.");
-				return false;
-			}
-			let factor = (factors.totp || []).find((item) => item.status === "verified");
-			let enrollment = null;
-			if (!factor) {
-				const { data, error } = await supabaseClient.auth.mfa.enroll({ factorType: "totp", friendlyName: "CodeBook admin" });
-				if (error) {
-					showLogin("Le second facteur n’a pas pu être configuré. Contacte l’administrateur du projet.");
-					return false;
-				}
-				factor = data;
-				enrollment = { qrCode: data.totp.qr_code, secret: data.totp.secret };
-			}
-			mfaFactorId = factor.id;
-			const { data: challenge, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId: mfaFactorId });
-			if (challengeError) {
-				showLogin("Le code de vérification n’a pas pu être demandé. Réessaie.");
-				return false;
-			}
-			mfaChallengeId = challenge.id;
-			showMfaForm(enrollment ? "Scanne ce code avec une application d’authentification, puis saisis le code affiché." : "Saisis le code à 6 chiffres de ton application d’authentification.", enrollment);
-			return false;
 		}
 
 		async function initializeAuth() {
@@ -706,20 +633,6 @@
 				}
 				const { error } = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl("recovery") });
 				setAuthFeedback(error ? "La demande n’a pas pu être envoyée. Réessaie plus tard." : "Si un compte correspond à cette adresse, tu recevras un e-mail de récupération.", Boolean(error));
-			});
-
-			document.querySelector("#mfa-form").addEventListener("submit", async (event) => {
-				event.preventDefault();
-				const code = document.querySelector("#mfa-code").value.trim();
-				const { error } = await supabaseClient.auth.mfa.verify({ factorId: mfaFactorId, challengeId: mfaChallengeId, code });
-				if (error) {
-					setAuthFeedback("Code invalide ou expiré. Vérifie l’heure de ton appareil et réessaie.", true);
-					const { data: challenge } = await supabaseClient.auth.mfa.challenge({ factorId: mfaFactorId });
-					mfaChallengeId = challenge?.id || mfaChallengeId;
-					return;
-				}
-				const { data } = await supabaseClient.auth.getSession();
-				await handleAuthSession("MFA_VERIFIED", data.session);
 			});
 
 			document.querySelector("#password-setup-form").addEventListener("submit", async (event) => {

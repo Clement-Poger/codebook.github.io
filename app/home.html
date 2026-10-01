@@ -49,18 +49,6 @@
 				</label>
 				<button class="primary-button" type="submit">Enregistrer le mot de passe</button>
 			</form>
-			<form class="auth-form" id="mfa-form" hidden>
-				<p id="mfa-prompt">Vérifie ton identité avec l’application d’authentification.</p>
-				<div class="mfa-enrollment" id="mfa-enrollment" hidden>
-					<img id="mfa-qr" alt="Code QR pour configurer l’application d’authentification">
-					<p>Ou saisis cette clé manuellement :</p>
-					<code id="mfa-secret"></code>
-				</div>
-				<label class="field-label" for="mfa-code">Code à 6 chiffres
-					<input id="mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
-				</label>
-				<button class="primary-button" type="submit">Vérifier le code</button>
-			</form>
 			<div class="auth-solutions">
 				<button class="auth-reset-button" id="auth-mode-toggle" type="button">Créer un compte</button>
 				<button class="auth-reset-button" id="request-password-reset" type="button">Mot de passe oublié ?</button>
@@ -79,7 +67,7 @@
 		<div class="nav-actions">
 			<span class="admin-tag" id="admin-tag" hidden>Admin</span>
 			<span class="account-email" id="account-email"></span>
-			<button class="admin-trigger" id="open-admin" type="button" hidden>Administration</button>
+			<button class="admin-trigger" id="open-admin" type="button" hidden><img src="images/face.svg" alt="" aria-hidden="true"></button>
 			<button class="help-trigger icon-button" id="open-help" type="button" aria-label="Aide"><img src="images/help.svg" alt="" aria-hidden="true"></button>
 			<button class="signout-button" id="sign-out" type="button"><img src="images/close.svg" alt="" aria-hidden="true"></button>
 		</div>
