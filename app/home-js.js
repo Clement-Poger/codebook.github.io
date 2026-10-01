@@ -14,15 +14,66 @@
 		let activeMode = "qcm";
 		let quizSession = null;
 
+		function parseQuizPayload(rawText) {
+			if (!rawText || !rawText.trim()) return null;
+			const trimmed = rawText.trim();
+			if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+				try {
+					const parsed = JSON.parse(trimmed);
+					if (parsed && typeof parsed === "object" && Array.isArray(parsed.series)) return parsed;
+					if (parsed && typeof parsed === "object" && Object.values(parsed).some((theme) => theme && typeof theme === "object" && Array.isArray(theme.series))) return parsed;
+				} catch (error) {
+					// Continue below for JS payloads.
+				}
+			}
+			try {
+				const script = new Function("window", `${trimmed}; return window.quizData ?? null;`);
+				const sandboxWindow = {};
+				const parsed = script(sandboxWindow);
+				if (parsed && typeof parsed === "object") {
+					if (Array.isArray(parsed.series)) return parsed;
+					if (Object.values(parsed).some((theme) => theme && typeof theme === "object" && Array.isArray(theme.series))) return parsed;
+				}
+			} catch (error) {
+				console.warn("Le fichier de quiz Supabase ne correspond pas à un payload exploitable.", error);
+			}
+			return null;
+		}
+
 		async function loadQuizDataFromSupabase() {
 			const config = window.SUPABASE_CONFIG || {};
+			const directSources = config.quizDataSources || {};
+			const remoteQuizData = {};
+			for (const [themeId, source] of Object.entries(directSources)) {
+				const candidates = Array.isArray(source) ? source : [source];
+				for (const candidate of candidates) {
+					if (!candidate) continue;
+					try {
+						const response = await fetch(candidate, { headers: config.anonKey ? { apikey: config.anonKey } : {} });
+						if (!response.ok) continue;
+						const text = await response.text();
+						const data = parseQuizPayload(text);
+						if (data && typeof data === "object") {
+							const extractedTheme = data[themeId] || data;
+							if (extractedTheme && typeof extractedTheme === "object" && Array.isArray(extractedTheme.series)) {
+								remoteQuizData[themeId] = extractedTheme;
+							} else if (Array.isArray(data.series)) {
+								remoteQuizData[themeId] = data;
+							}
+							break;
+						}
+					} catch (error) {
+						console.warn(`Le fichier de quiz ${candidate} n’a pas pu être chargé depuis Supabase.`, error);
+					}
+				}
+			}
+			if (Object.keys(remoteQuizData).length) return remoteQuizData;
 			if (!config.url || !config.anonKey) return null;
 			const bucket = config.quizBucket || config.storageBucket || "quiz-data";
 			const storagePaths = config.quizStoragePaths || {
 				ethique: ["ethique.json", "questions/ethique.json", "quizzes/ethique.json"],
 				gnu_linux: ["gnu_linux.json", "questions/gnu_linux.json", "quizzes/gnu_linux.json"]
 			};
-			const remoteQuizData = {};
 			for (const [themeId, candidates] of Object.entries(storagePaths)) {
 				const normalizedCandidates = Array.isArray(candidates) ? candidates : [candidates];
 				for (const candidate of normalizedCandidates) {
@@ -31,10 +82,15 @@
 					try {
 						const response = await fetch(publicUrl, { headers: { apikey: config.anonKey } });
 						if (!response.ok) continue;
-						const payload = await response.json();
-						const data = payload?.data ?? payload;
-						if (data && typeof data === "object" && Array.isArray(data.series)) {
-							remoteQuizData[themeId] = data;
+						const text = await response.text();
+						const data = parseQuizPayload(text);
+						if (data && typeof data === "object") {
+							const extractedTheme = data[themeId] || data;
+							if (extractedTheme && typeof extractedTheme === "object" && Array.isArray(extractedTheme.series)) {
+								remoteQuizData[themeId] = extractedTheme;
+							} else if (Array.isArray(data.series)) {
+								remoteQuizData[themeId] = data;
+							}
 							break;
 						}
 					} catch (error) {
